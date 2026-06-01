@@ -1,0 +1,566 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Fragholic E-Commerce API Documentation",
+    "description": "Dokumentasi API resmi untuk aplikasi penjualan parfum Fragholic berbasis Express.js dan Sequelize.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000/api",
+      "description": "Development Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "QueryAuth": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "token",
+        "description": "Gunakan ini khusus untuk endpoint download/export PDF jika tidak menggunakan Header."
+      }
+    },
+    "schemas": {
+      "UserRegisterInput": {
+        "type": "object",
+        "required": ["nama", "email", "password", "no_hp", "alamat"],
+        "properties": {
+          "nama": { "type": "string", "minLength": 3, "example": "Budi Santoso" },
+          "email": { "type": "string", "format": "email", "example": "budi@gmail.com" },
+          "password": { "type": "string", "minLength": 6, "example": "password123" },
+          "no_hp": { "type": "string", "minLength": 10, "example": "081234567890" },
+          "alamat": { "type": "string", "minLength": 5, "example": "Jl. Merdeka No. 10, Jakarta" }
+        }
+      },
+      "UserLoginInput": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email", "example": "budi@gmail.com" },
+          "password": { "type": "string", "example": "password123" }
+        }
+      },
+      "KategoriInput": {
+        "type": "object",
+        "required": ["nama_kategori"],
+        "properties": {
+          "nama_kategori": { "type": "string", "minLength": 3, "example": "Sandalwood & Woody" },
+          "deskripsi": { "type": "string", "example": "Parfum dengan aroma dasar kayu murni yang maskulin." }
+        }
+      },
+      "KeranjangInput": {
+        "type": "object",
+        "required": ["produk_id", "jumlah"],
+        "properties": {
+          "produk_id": { "type": "integer", "example": 1 },
+          "jumlah": { "type": "integer", "example": 2 }
+        }
+      },
+      "StatusPesananInput": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["pending", "dikemas", "dikirim", "selesai", "dibatalkan"],
+            "example": "dikirim"
+          },
+          "nama_ekspedisi": { "type": "string", "example": "JNE Reguler" },
+          "nomor_resi": { "type": "string", "example": "REG987654321" }
+        }
+      }
+    }
+  },
+  "security": [
+    { "BearerAuth": [] }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register Customer Baru",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserRegisterInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Register berhasil" },
+          "400": { "description": "Validasi error atau email sudah digunakan" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Login User",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserLoginInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login berhasil, mengembalikan token JWT" },
+          "400": { "description": "Email atau password salah" }
+        }
+      }
+    },
+    "/auth/register-admin": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register Akun Admin Baru",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserRegisterInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Register admin berhasil" },
+          "400": { "description": "Email sudah digunakan" }
+        }
+      }
+    },
+    "/auth/profile": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Ambil Profil User yang Sedang Login",
+        "responses": {
+          "200": { "description": "Berhasil mengambil profil" },
+          "401": { "description": "Unauthorized (Token tidak ada, invalid, atau expired)" }
+        }
+      }
+    },
+    "/kategori": {
+      "get": {
+        "tags": ["Kategori"],
+        "summary": "Ambil Semua Kategori (Public)",
+        "security": [],
+        "responses": {
+          "200": { "description": "Success" }
+        }
+      },
+      "post": {
+        "tags": ["Kategori"],
+        "summary": "Buat Kategori Baru (Admin Only)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/KategoriInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Kategori berhasil dibuat" },
+          "400": { "description": "Validasi error atau nama kategori sudah ada" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden (Bukan Admin)" }
+        }
+      }
+    },
+    "/kategori/{id}": {
+      "get": {
+        "tags": ["Kategori"],
+        "summary": "Ambil Kategori berdasarkan ID (Public)",
+        "security": [],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Success" },
+          "404": { "description": "Kategori tidak ditemukan" }
+        }
+      },
+      "put": {
+        "tags": ["Kategori"],
+        "summary": "Update Kategori (Admin Only)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/KategoriInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Kategori berhasil diupdate" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Kategori tidak ditemukan" }
+        }
+      },
+      "delete": {
+        "tags": ["Kategori"],
+        "summary": "Hapus Kategori (Admin Only)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Kategori berhasil dihapus" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Kategori tidak ditemukan" }
+        }
+      }
+    },
+    "/keranjang": {
+      "get": {
+        "tags": ["Keranjang"],
+        "summary": "Ambil Data Keranjang Milik User Login",
+        "responses": {
+          "200": { "description": "Success" },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Keranjang"],
+        "summary": "Tambah/Update Produk Ke Keranjang",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/KeranjangInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Produk berhasil ditambahkan ke keranjang" },
+          "200": { "description": "Jumlah produk di keranjang diupdate" },
+          "400": { "description": "Stok tidak cukup" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Produk tidak ditemukan" }
+        }
+      }
+    },
+    "/keranjang/{id}": {
+      "put": {
+        "tags": ["Keranjang"],
+        "summary": "Ubah Jumlah Item di Keranjang",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jumlah": { "type": "integer", "example": 5 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Keranjang berhasil diupdate" },
+          "400": { "description": "Stok tidak cukup" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Item keranjang tidak ditemukan" }
+        }
+      },
+      "delete": {
+        "tags": ["Keranjang"],
+        "summary": "Hapus Item Dari Keranjang",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Produk berhasil dihapus dari keranjang" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Item keranjang tidak ditemukan" }
+        }
+      }
+    },
+    "/produk": {
+      "get": {
+        "tags": ["Produk"],
+        "summary": "Ambil Semua Produk + Filter Dinamis (Public)",
+        "security": [],
+        "parameters": [
+          { "name": "nama", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "kategori_id", "in": "query", "required": false, "schema": { "type": "integer" } },
+          { "name": "gender", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "ukuran_ml", "in": "query", "required": false, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Success" }
+        }
+      },
+      "post": {
+        "tags": ["Produk"],
+        "summary": "Tambah Produk Baru + Upload Foto (Admin Only)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["kategori_id", "nama_produk", "harga", "stok", "ukuran_ml"],
+                "properties": {
+                  "kategori_id": { "type": "integer", "example": 1 },
+                  "nama_produk": { "type": "string", "example": "Pendora Scents Nexus" },
+                  "deskripsi": { "type": "string", "example": "Aroma klon madu tembakau yang manis dan maskulin." },
+                  "harga": { "type": "number", "example": 280000 },
+                  "stok": { "type": "integer", "example": 30 },
+                  "merek": { "type": "string", "example": "Pendora Scents" },
+                  "ukuran_ml": { "type": "integer", "example": 100 },
+                  "gender": { "type": "string", "example": "Laki-laki" },
+                  "foto": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Produk berhasil dibuat" },
+          "400": { "description": "Validasi error" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Kategori tidak ditemukan" }
+        }
+      }
+    },
+    "/produk/{id}": {
+      "get": {
+        "tags": ["Produk"],
+        "summary": "Detail Produk Berdasarkan ID (Public)",
+        "security": [],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Success" },
+          "404": { "description": "Produk tidak ditemukan" }
+        }
+      },
+      "put": {
+        "tags": ["Produk"],
+        "summary": "Update Data Produk + Ganti Foto (Admin Only)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kategori_id": { "type": "integer" },
+                  "nama_produk": { "type": "string" },
+                  "deskripsi": { "type": "string" },
+                  "harga": { "type": "number" },
+                  "stok": { "type": "integer" },
+                  "merek": { "type": "string" },
+                  "ukuran_ml": { "type": "integer" },
+                  "gender": { "type": "string" },
+                  "foto": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Produk berhasil diupdate" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Produk tidak ditemukan" }
+        }
+      },
+      "delete": {
+        "tags": ["Produk"],
+        "summary": "Hapus Produk (Admin Only)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Produk berhasil dihapus" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Produk tidak ditemukan" }
+        }
+      }
+    },
+    "/produk/{id}/rekomendasi": {
+      "get": {
+        "tags": ["Produk"],
+        "summary": "Ambil Rekomendasi Produk Terkait (Public)",
+        "security": [],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Success" }
+        }
+      }
+    },
+    "/pesanan/my": {
+      "get": {
+        "tags": ["Pesanan"],
+        "summary": "List Pesanan Milik Customer yang Sedang Login",
+        "responses": {
+          "200": { "description": "Success" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/pesanan/checkout": {
+      "post": {
+        "tags": ["Pesanan"],
+        "summary": "Checkout dari Keranjang + Upload Bukti Bayar (Customer)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["alamat_kirim", "bukti_bayar"],
+                "properties": {
+                  "alamat_kirim": { "type": "string", "example": "Jl. Ketapang No. 4, Depok" },
+                  "bukti_bayar": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Pesanan berhasil dibuat" },
+          "400": { "description": "Keranjang kosong, bukti bayar wajib diupload, atau stok tidak cukup" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/pesanan/{id}/konfirmasi": {
+      "put": {
+        "tags": ["Pesanan"],
+        "summary": "Customer Konfirmasi Pesanan Telah Diterima",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Pesanan dikonfirmasi selesai" },
+          "400": { "description": "Pesanan belum dikirim" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Pesanan tidak ditemukan" }
+        }
+      }
+    },
+    "/pesanan": {
+      "get": {
+        "tags": ["Pesanan"],
+        "summary": "Ambil Semua Pesanan Masuk (Admin Only)",
+        "responses": {
+          "200": { "description": "Success" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/pesanan/{id}": {
+      "get": {
+        "tags": ["Pesanan"],
+        "summary": "Detail Pesanan Berdasarkan ID (Admin Only)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Success" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Pesanan tidak ditemukan" }
+        }
+      }
+    },
+    "/pesanan/{id}/status": {
+      "put": {
+        "tags": ["Pesanan"],
+        "summary": "Update Status & Resi Pengiriman Pesanan (Admin Only)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/StatusPesananInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Status pesanan berhasil diupdate" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Pesanan tidak ditemukan" }
+        }
+      }
+    },
+    "/laporan": {
+      "get": {
+        "tags": ["Laporan"],
+        "summary": "Ambil Dashboard Laporan Omset & Penjualan (Admin Only)",
+        "parameters": [
+          { "name": "bulan", "in": "query", "required": false, "schema": { "type": "integer", "example": 6 } },
+          { "name": "tahun", "in": "query", "required": false, "schema": { "type": "integer", "example": 2026 } }
+        ],
+        "responses": {
+          "200": { "description": "Success" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/laporan/export-pdf": {
+      "get": {
+        "tags": ["Laporan"],
+        "summary": "Download Laporan Penjualan Bentuk PDF (Admin/Query Token OK)",
+        "security": [
+          { "BearerAuth": [] },
+          { "QueryAuth": [] }
+        ],
+        "parameters": [
+          { "name": "bulan", "in": "query", "required": false, "schema": { "type": "integer" } },
+          { "name": "tahun", "in": "query", "required": false, "schema": { "type": "integer" } },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "description": "Masukkan token di sini jika ingin mengetes via query string langsung di browser.",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mengembalikan Stream Binary File PDF Langsung Unduh",
+            "content": {
+              "application/pdf": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    }
+  }
+}
