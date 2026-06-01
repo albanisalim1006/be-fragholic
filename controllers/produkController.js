@@ -12,8 +12,9 @@ module.exports = {
         try {
             const { nama, kategori_id, gender, ukuran_ml } = req.query
 
-            //buat kondisi filter dinamis berdasarkan query yang dikirim
+            // siapkan filter pencarian
             let whereClause = {}
+
             if (nama) whereClause.nama_produk = { [Op.like]: `%${nama}%` }
             if (kategori_id) whereClause.kategori_id = kategori_id
             if (gender) whereClause.gender = gender
@@ -21,8 +22,9 @@ module.exports = {
 
             const produk = await Produk.findAll({
                 where: whereClause,
-                include: [{ model: Kategori }] //ambil data kategorinya sekalian
+                include: [{ model: Kategori }]
             })
+
             return res.status(200).json(response(200, "success", produk))
         } catch (error) {
             return res.status(500).json(response(500, "Server Error", error.message))
@@ -34,9 +36,11 @@ module.exports = {
             const produk = await Produk.findByPk(req.params.id, {
                 include: [{ model: Kategori }]
             })
+
             if (!produk) {
                 return res.status(404).json(response(404, "produk tidak ditemukan"))
             }
+
             return res.status(200).json(response(200, "success", produk))
         } catch (error) {
             return res.status(500).json(response(500, "Server Error", error.message))
@@ -45,28 +49,41 @@ module.exports = {
 
     createProduk: async (req, res) => {
         try {
-            const { kategori_id, nama_produk, deskripsi, harga, stok, merek, ukuran_ml, gender } = req.body
+            const {
+                kategori_id,
+                nama_produk,
+                deskripsi,
+                harga,
+                stok,
+                merek,
+                ukuran_ml,
+                gender
+            } = req.body
 
-            //validasi input
+            // validasi data
             const schema = {
                 nama_produk: { type: "string", min: 3 },
                 harga: { type: "number", positive: true },
                 stok: { type: "number", positive: true, integer: true },
                 ukuran_ml: { type: "number", positive: true, integer: true }
             }
+
             const data = {
                 nama_produk,
                 harga: Number(harga),
                 stok: Number(stok),
                 ukuran_ml: Number(ukuran_ml)
             }
+
             const validate = v.validate(data, schema)
+
             if (validate.length > 0) {
                 return res.status(400).json(response(400, "validasi error", validate))
             }
 
-            //pastiin kategorinya ada dulu
+            // cek kategori
             const kategori = await Kategori.findByPk(Number(kategori_id))
+
             if (!kategori) {
                 return res.status(404).json(response(404, "kategori tidak ditemukan"))
             }
@@ -84,7 +101,11 @@ module.exports = {
                 ukuran_ml: Number(ukuran_ml),
                 gender
             })
-            return res.status(201).json(response(201, "produk berhasil dibuat", produk))
+
+            return res.status(201).json(
+                response(201, "produk berhasil dibuat", produk)
+            )
+
         } catch (error) {
             return res.status(500).json(response(500, "Server Error", error.message))
         }
@@ -92,17 +113,30 @@ module.exports = {
 
     updateProduk: async (req, res) => {
         try {
-            const { kategori_id, nama_produk, deskripsi, harga, stok, merek, ukuran_ml, gender } = req.body
+            const {
+                kategori_id,
+                nama_produk,
+                deskripsi,
+                harga,
+                stok,
+                merek,
+                ukuran_ml,
+                gender
+            } = req.body
 
             const produk = await Produk.findByPk(req.params.id)
+
             if (!produk) {
                 return res.status(404).json(response(404, "produk tidak ditemukan"))
             }
 
-            //hapus foto lama kalau ada foto baru yang diupload
+            // ganti foto lama jika ada upload baru
             if (req.file && produk.foto) {
                 const fotoLama = path.join(__dirname, '../uploads', produk.foto)
-                if (fs.existsSync(fotoLama)) fs.unlinkSync(fotoLama)
+
+                if (fs.existsSync(fotoLama)) {
+                    fs.unlinkSync(fotoLama)
+                }
             }
 
             await produk.update({
@@ -116,7 +150,11 @@ module.exports = {
                 ukuran_ml: Number(ukuran_ml),
                 gender
             })
-            return res.status(200).json(response(200, "produk berhasil diupdate", produk))
+
+            return res.status(200).json(
+                response(200, "produk berhasil diupdate", produk)
+            )
+
         } catch (error) {
             return res.status(500).json(response(500, "Server Error", error.message))
         }
@@ -125,18 +163,26 @@ module.exports = {
     deleteProduk: async (req, res) => {
         try {
             const produk = await Produk.findByPk(req.params.id)
+
             if (!produk) {
                 return res.status(404).json(response(404, "produk tidak ditemukan"))
             }
 
-            //hapus foto dari folder uploads kalau ada
+            // hapus foto produk
             if (produk.foto) {
                 const fotoPath = path.join(__dirname, '../uploads', produk.foto)
-                if (fs.existsSync(fotoPath)) fs.unlinkSync(fotoPath)
+
+                if (fs.existsSync(fotoPath)) {
+                    fs.unlinkSync(fotoPath)
+                }
             }
 
             await produk.destroy()
-            return res.status(200).json(response(200, "produk berhasil dihapus"))
+
+            return res.status(200).json(
+                response(200, "produk berhasil dihapus")
+            )
+
         } catch (error) {
             return res.status(500).json(response(500, "Server Error", error.message))
         }
@@ -145,21 +191,28 @@ module.exports = {
     getRekomendasiProduk: async (req, res) => {
         try {
             const produk = await Produk.findByPk(req.params.id)
+
             if (!produk) {
                 return res.status(404).json(response(404, "produk tidak ditemukan"))
             }
 
-            //cari produk lain yang kategori dan gender sama, tapi bukan produk ini
+            // cari produk serupa
             const rekomendasi = await Produk.findAll({
                 where: {
                     kategori_id: produk.kategori_id,
                     gender: produk.gender,
-                    id: { [Op.ne]: req.params.id } //ne = not equal
+                    id: {
+                        [Op.ne]: req.params.id
+                    }
                 },
                 limit: 4,
                 include: [{ model: Kategori }]
             })
-            return res.status(200).json(response(200, "success", rekomendasi))
+
+            return res.status(200).json(
+                response(200, "success", rekomendasi)
+            )
+
         } catch (error) {
             return res.status(500).json(response(500, "Server Error", error.message))
         }

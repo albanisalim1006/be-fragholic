@@ -1,8 +1,7 @@
 const { response } = require('../helpers/response.formatter')
 
 module.exports = {
-    //checkRole dipanggil dengan parameter role yang diizinkan
-    //contoh: checkRole('admin') atau checkRole('customer')
+    //checkrole dipanggil dengan parameter role yang diizinkan
     checkRole: (role) => {
         return (req, res, next) => {
             //cek role user yang login sama ga sama role yang dibutuhkan

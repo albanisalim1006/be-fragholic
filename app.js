@@ -3,7 +3,6 @@ const cors = require('cors')
 const swaggerUi = require('swagger-ui-express') // lib swagger-ui
 require('dotenv').config()
 
-// 2. Load file swagger.json (Native, tanpa parser tambahan)
 const swaggerDocument = require('./swagger.json')
 
 const app = express()
@@ -12,7 +11,7 @@ app.use(cors({ origin: 'http://localhost:5173' }))
 app.use(express.json())
 app.use('/uploads', express.static('uploads'))
 
-// 3. Pasang routing untuk dokumentasi Swagger UI bawaan asli
+//routing untuk dokumentasi API pake swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument))
 
 // Mendaftarkan semua routes utama lu
@@ -25,8 +24,6 @@ app.use('/api/laporan', require('./routes/laporanRoutes'))
 
 const PORT = process.env.PORT || 3000
 app.listen(PORT, () => {
-    console.log(`\n==================================================`)
-    console.log(`🚀 Server jalan di port ${PORT}`)
-    console.log(`📄 API Docs ready at: http://localhost:${PORT}/api-docs`)
-    console.log(`==================================================\n`)
+    console.log(`Server jalan di port ${PORT}`)
+    console.log(`API Docs ready at: http://localhost:${PORT}/api-docs`)
 })

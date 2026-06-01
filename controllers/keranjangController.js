@@ -21,18 +21,18 @@ module.exports = {
             const { produk_id, jumlah } = req.body
             const user_id = req.user.id
 
-            //cek produknya ada
+            //cek produknya 
             const produk = await Produk.findByPk(produk_id)
             if (!produk) {
                 return res.status(404).json(response(404, "produk tidak ditemukan"))
             }
 
-            //cek stok cukup
+            //cek stok 
             if (Number(jumlah) > produk.stok) {
                 return res.status(400).json(response(400, `stok tidak cukup, tersedia: ${produk.stok}`))
             }
 
-            //kalau produk udah ada di keranjang, tambah jumlahnya aja
+            //kalau produk udah ada di keranjang, tambah jumlahnya 
             const keranjangAda = await Keranjang.findOne({ where: { user_id, produk_id } })
             if (keranjangAda) {
                 await keranjangAda.update({ jumlah: keranjangAda.jumlah + Number(jumlah) })

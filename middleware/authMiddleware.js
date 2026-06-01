@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken')
 const { response } = require('../helpers/response.formatter')
 
 module.exports = {
-    //next : parameter untuk melanjutkan request ke controller
+    //parameter untuk melanjutkan request ke controller
     checkToken: async (req, res, next) => {
         //token diambil dari header atau query (buat download file)
         const token = req.header("Authorization")?.replace("Bearer ", "") || req.query.token

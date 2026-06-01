@@ -40,7 +40,7 @@ module.exports = {
             return res.status(500).json(response(500, "Server Error", error.message))
         }
     },
-
+    // export pdf menggunakan package pdfkit
     exportPDF: async (req, res) => {
         try {
             const { bulan, tahun } = req.query

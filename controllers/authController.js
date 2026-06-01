@@ -11,7 +11,7 @@ module.exports = {
         try {
             const { nama, email, password, no_hp, alamat } = req.body
 
-            //validasi input
+            // validasi data
             const schema = {
                 nama: { type: "string", min: 3 },
                 email: { type: "email" },
@@ -19,25 +19,26 @@ module.exports = {
                 no_hp: { type: "string", min: 10 },
                 alamat: { type: "string", min: 5 }
             }
+
             const validate = v.validate({ nama, email, password, no_hp, alamat }, schema)
             if (validate.length > 0) {
                 return res.status(400).json(response(400, "validasi error", validate))
             }
 
-            //cek email sudah dipakai atau belum
+            // cek email
             const cekEmail = await User.findOne({ where: { email } })
             if (cekEmail) {
                 return res.status(400).json(response(400, "email sudah digunakan"))
             }
 
-            //hash password sebelum disimpan
+            // enkripsi password
             const hashedPassword = await bcrypt.hash(password, 10)
 
             const user = await User.create({
                 nama,
                 email,
                 password: hashedPassword,
-                role: 'customer', //register selalu jadi customer
+                role: 'customer',
                 no_hp,
                 alamat
             })
@@ -57,20 +58,19 @@ module.exports = {
         try {
             const { email, password } = req.body
 
-            //cek email ada di database
+            // cari user
             const user = await User.findOne({ where: { email } })
             if (!user) {
                 return res.status(400).json(response(400, "email atau password salah"))
             }
 
-            //bandingin password input sama yang di database
+            // verifikasi password
             const validPass = await bcrypt.compare(password, user.password)
             if (!validPass) {
                 return res.status(400).json(response(400, "email atau password salah"))
             }
 
-            //buat token JWT, expired 1 hari
-            //payload berisi data user yang disimpan di dalam token
+            // generate token
             const token = jwt.sign(
                 { id: user.id, nama: user.nama, email: user.email, role: user.role },
                 process.env.JWT_SECRET,
@@ -95,17 +95,22 @@ module.exports = {
         try {
             const { nama, email, password, no_hp, alamat } = req.body
 
+            // cek email
             const cekEmail = await User.findOne({ where: { email } })
             if (cekEmail) {
                 return res.status(400).json(response(400, "email sudah digunakan"))
             }
 
+            // enkripsi password
             const hashedPassword = await bcrypt.hash(password, 10)
+
             const user = await User.create({
-                nama, email,
+                nama,
+                email,
                 password: hashedPassword,
                 role: 'admin',
-                no_hp, alamat
+                no_hp,
+                alamat
             })
 
             return res.status(201).json(response(201, "register admin berhasil", {
@@ -121,10 +126,11 @@ module.exports = {
 
     getProfile: async (req, res) => {
         try {
-            //req.user diisi dari authMiddleware, ambil berdasarkan id dari token
+            // ambil data user
             const user = await User.findByPk(req.user.id, {
-                attributes: { exclude: ['password'] } //jangan tampilkan password
+                attributes: { exclude: ['password'] }
             })
+
             return res.status(200).json(response(200, "success", user))
         } catch (error) {
             return res.status(500).json(response(500, "Server Error", error.message))

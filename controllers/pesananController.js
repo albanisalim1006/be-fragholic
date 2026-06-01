@@ -6,14 +6,15 @@ module.exports = {
 
     getAllPesanan: async (req, res) => {
         try {
-            //ambil semua pesanan beserta data user dan detail produknya
+            // ambil data pesanan
             const pesanan = await Pesanan.findAll({
                 include: [
                     { model: User, attributes: ['id', 'nama', 'email', 'no_hp'] },
                     { model: DetailPesanan, include: [{ model: Produk }] }
                 ],
-                order: [['createdAt', 'DESC']] //urut dari yang terbaru
+                order: [['createdAt', 'DESC']] // data terbaru di atas
             })
+
             return res.status(200).json(response(200, "success", pesanan))
         } catch (error) {
             return res.status(500).json(response(500, "Server Error", error.message))
@@ -22,12 +23,13 @@ module.exports = {
 
     getMyPesanan: async (req, res) => {
         try {
-            //ambil pesanan milik user yang login saja
+            // ambil pesanan user yang sedang login
             const pesanan = await Pesanan.findAll({
                 where: { user_id: req.user.id },
                 include: [{ model: DetailPesanan, include: [{ model: Produk }] }],
                 order: [['createdAt', 'DESC']]
             })
+
             return res.status(200).json(response(200, "success", pesanan))
         } catch (error) {
             return res.status(500).json(response(500, "Server Error", error.message))
@@ -36,15 +38,18 @@ module.exports = {
 
     getPesananById: async (req, res) => {
         try {
+            // cek pesanan
             const pesanan = await Pesanan.findByPk(req.params.id, {
                 include: [
                     { model: User, attributes: ['id', 'nama', 'email', 'no_hp'] },
                     { model: DetailPesanan, include: [{ model: Produk }] }
                 ]
             })
+
             if (!pesanan) {
                 return res.status(404).json(response(404, "pesanan tidak ditemukan"))
             }
+
             return res.status(200).json(response(200, "success", pesanan))
         } catch (error) {
             return res.status(500).json(response(500, "Server Error", error.message))
@@ -52,20 +57,21 @@ module.exports = {
     },
 
     checkout: async (req, res) => {
-        //menggunakan database transaction
-        //kalau salah satu proses gagal, semua proses dibatalkan (rollback)
+        // gunakan transaction
         const t = await sequelize.transaction()
+
         try {
             const { alamat_kirim } = req.body
             const user_id = req.user.id
             const bukti_bayar = req.file ? req.file.filename : null
 
+            // cek bukti pembayaran
             if (!bukti_bayar) {
                 await t.rollback()
                 return res.status(400).json(response(400, "bukti pembayaran wajib diupload"))
             }
 
-            //ambil semua item keranjang milik user
+            // ambil isi keranjang
             const keranjang = await Keranjang.findAll({
                 where: { user_id },
                 include: [{ model: Produk }]
@@ -76,13 +82,13 @@ module.exports = {
                 return res.status(400).json(response(400, "keranjang kosong"))
             }
 
-            //hitung total harga dari semua item di keranjang
+            // hitung total belanja
             let total_harga = 0
             for (const item of keranjang) {
                 total_harga += item.jumlah * item.Produk.harga
             }
 
-            //1. insert data ke tabel Pesanan
+            // simpan data pesanan
             const pesanan = await Pesanan.create({
                 user_id,
                 total_harga,
@@ -91,15 +97,18 @@ module.exports = {
                 bukti_bayar
             }, { transaction: t })
 
-            //2. loop keranjang: insert detail pesanan dan kurangi stok
+            // simpan detail pesanan dan update stok
             for (const item of keranjang) {
-                //cek stok masih cukup
+
+                // pastikan stok masih tersedia
                 if (item.jumlah > item.Produk.stok) {
                     await t.rollback()
-                    return res.status(400).json(response(400, `stok ${item.Produk.nama_produk} tidak cukup`))
+                    return res.status(400).json(
+                        response(400, `stok ${item.Produk.nama_produk} tidak cukup`)
+                    )
                 }
 
-                //insert ke tabel DetailPesanan
+                // simpan detail produk yang dibeli
                 await DetailPesanan.create({
                     pesanan_id: pesanan.id,
                     produk_id: item.produk_id,
@@ -108,26 +117,33 @@ module.exports = {
                     subtotal: item.jumlah * item.Produk.harga
                 }, { transaction: t })
 
-                //kurangi stok produk
+                // update stok produk
                 await Produk.update(
                     { stok: item.Produk.stok - item.jumlah },
                     { where: { id: item.produk_id }, transaction: t }
                 )
             }
 
-            //3. hapus semua item keranjang setelah checkout berhasil
+            // kosongkan keranjang setelah checkout
             await Keranjang.destroy({
                 where: { user_id },
                 transaction: t
             })
 
-            //semua berhasil, commit transaction
+            // simpan semua perubahan
             await t.commit()
-            return res.status(201).json(response(201, "pesanan berhasil dibuat", pesanan))
+
+            return res.status(201).json(
+                response(201, "pesanan berhasil dibuat", pesanan)
+            )
+
         } catch (error) {
-            //ada yang gagal, batalkan semua proses
+            // batalkan perubahan jika error
             await t.rollback()
-            return res.status(500).json(response(500, "Server Error", error.message))
+
+            return res.status(500).json(
+                response(500, "Server Error", error.message)
+            )
         }
     },
 
@@ -135,13 +151,23 @@ module.exports = {
         try {
             const { status, nama_ekspedisi, nomor_resi } = req.body
 
+            // cek pesanan
             const pesanan = await Pesanan.findByPk(req.params.id)
+
             if (!pesanan) {
                 return res.status(404).json(response(404, "pesanan tidak ditemukan"))
             }
 
-            await pesanan.update({ status, nama_ekspedisi, nomor_resi })
-            return res.status(200).json(response(200, "status pesanan berhasil diupdate", pesanan))
+            await pesanan.update({
+                status,
+                nama_ekspedisi,
+                nomor_resi
+            })
+
+            return res.status(200).json(
+                response(200, "status pesanan berhasil diupdate", pesanan)
+            )
+
         } catch (error) {
             return res.status(500).json(response(500, "Server Error", error.message))
         }
@@ -149,21 +175,29 @@ module.exports = {
 
     konfirmasiDiterima: async (req, res) => {
         try {
-            //pastiin pesanan milik user yang login
+            // pastikan pesanan milik user
             const pesanan = await Pesanan.findOne({
-                where: { id: req.params.id, user_id: req.user.id }
+                where: {
+                    id: req.params.id,
+                    user_id: req.user.id
+                }
             })
+
             if (!pesanan) {
                 return res.status(404).json(response(404, "pesanan tidak ditemukan"))
             }
 
-            //hanya bisa konfirmasi kalau statusnya sudah dikirim
+            // hanya bisa dikonfirmasi setelah dikirim
             if (pesanan.status !== 'dikirim') {
                 return res.status(400).json(response(400, "pesanan belum dikirim"))
             }
 
             await pesanan.update({ status: 'selesai' })
-            return res.status(200).json(response(200, "pesanan dikonfirmasi selesai", pesanan))
+
+            return res.status(200).json(
+                response(200, "pesanan dikonfirmasi selesai", pesanan)
+            )
+
         } catch (error) {
             return res.status(500).json(response(500, "Server Error", error.message))
         }

@@ -1,7 +1,7 @@
 const multer = require("multer")
 const path = require("path")
 
-//konfigurasi penyimpanan file upload
+//konfigurasi penyimpanan file yang diupload
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         //file yang diupload disimpan di folder uploads
