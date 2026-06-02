@@ -10,7 +10,7 @@ router.get('/', produkController.getProduk)
 router.get('/:id', produkController.getProdukById)
 router.get('/:id/rekomendasi', produkController.getRekomendasiProduk)
 
-//khusus admin, upload.single karena ada 1 foto
+//cuman admin, upload.single berarti cuma 1 file, field namenya 'foto'
 router.post('/', checkToken, checkRole('admin'), upload.single('foto'), produkController.createProduk)
 router.put('/:id', checkToken, checkRole('admin'), upload.single('foto'), produkController.updateProduk)
 router.delete('/:id', checkToken, checkRole('admin'), produkController.deleteProduk)

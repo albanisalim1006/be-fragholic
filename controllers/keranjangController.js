@@ -3,9 +3,10 @@ const { response } = require('../helpers/response.formatter')
 
 module.exports = {
 
+    //ambil keranjang milik user yang lgi login
     getKeranjang: async (req, res) => {
         try {
-            //ambil keranjang milik user yang sedang login
+            //cuman ngambil keranjang milik user yg login
             const keranjang = await Keranjang.findAll({
                 where: { user_id: req.user.id },
                 include: [{ model: Produk }] //include produk biar tau nama, harga, dll
@@ -21,7 +22,7 @@ module.exports = {
             const { produk_id, jumlah } = req.body
             const user_id = req.user.id
 
-            //cek produknya 
+            //cek produknya
             const produk = await Produk.findByPk(produk_id)
             if (!produk) {
                 return res.status(404).json(response(404, "produk tidak ditemukan"))
@@ -32,7 +33,7 @@ module.exports = {
                 return res.status(400).json(response(400, `stok tidak cukup, tersedia: ${produk.stok}`))
             }
 
-            //kalau produk udah ada di keranjang, tambah jumlahnya 
+            //kalau produk udah ada di keranjang, tambahin jumlahnya 
             const keranjangAda = await Keranjang.findOne({ where: { user_id, produk_id } })
             if (keranjangAda) {
                 await keranjangAda.update({ jumlah: keranjangAda.jumlah + Number(jumlah) })
@@ -63,7 +64,7 @@ module.exports = {
                 return res.status(404).json(response(404, "item keranjang tidak ditemukan"))
             }
 
-            //cek stok masih cukup
+            //cek stok
             const produk = await Produk.findByPk(keranjang.produk_id)
             if (Number(jumlah) > produk.stok) {
                 return res.status(400).json(response(400, `stok tidak cukup, tersedia: ${produk.stok}`))
@@ -78,6 +79,7 @@ module.exports = {
 
     deleteKeranjang: async (req, res) => {
         try {
+            //mastiin item yg dihapus, milik user yg lagi login 
             const keranjang = await Keranjang.findOne({
                 where: { id: req.params.id, user_id: req.user.id }
             })

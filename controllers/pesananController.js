@@ -4,15 +4,16 @@ const { sequelize } = require('../models')
 
 module.exports = {
 
+     // ambil semua data pesanan
     getAllPesanan: async (req, res) => {
         try {
-            // ambil data pesanan
             const pesanan = await Pesanan.findAll({
+                //include data user dan detail pesanan sama produk yg dibeli
                 include: [
                     { model: User, attributes: ['id', 'nama', 'email', 'no_hp'] },
                     { model: DetailPesanan, include: [{ model: Produk }] }
                 ],
-                order: [['createdAt', 'DESC']] // data terbaru di atas
+                order: [['createdAt', 'DESC']] // data yg paling baru
             })
 
             return res.status(200).json(response(200, "success", pesanan))
@@ -21,11 +22,12 @@ module.exports = {
         }
     },
 
+    //ambil pesanan punya user yg lagi login
     getMyPesanan: async (req, res) => {
         try {
             // ambil pesanan user yang sedang login
             const pesanan = await Pesanan.findAll({
-                where: { user_id: req.user.id },
+                where: { user_id: req.user.id }, //mastiin yg dimbil pesanan user yg lagi login
                 include: [{ model: DetailPesanan, include: [{ model: Produk }] }],
                 order: [['createdAt', 'DESC']]
             })
@@ -57,21 +59,22 @@ module.exports = {
     },
 
     checkout: async (req, res) => {
-        // gunakan transaction
+        // gunakan tabel transaction, klo ada error atau gagal di tengah proses, semuanya di rollback(dibatalin)
         const t = await sequelize.transaction()
 
         try {
             const { alamat_kirim } = req.body
             const user_id = req.user.id
+            //ambil nama file dari bukti bayar yg diupload
             const bukti_bayar = req.file ? req.file.filename : null
 
-            // cek bukti pembayaran
+            // cek bukti pembayaran, wajib ada
             if (!bukti_bayar) {
                 await t.rollback()
                 return res.status(400).json(response(400, "bukti pembayaran wajib diupload"))
             }
 
-            // ambil isi keranjang
+            // ambil isi keranjang user yg lagi login
             const keranjang = await Keranjang.findAll({
                 where: { user_id },
                 include: [{ model: Produk }]
@@ -92,14 +95,13 @@ module.exports = {
             const pesanan = await Pesanan.create({
                 user_id,
                 total_harga,
-                status: 'pending',
+                status: 'pending', //status pas awal di checkout
                 alamat_kirim,
                 bukti_bayar
-            }, { transaction: t })
+            }, { transaction: t }) //masukin ke transaction biar kalo ada error, bisa di rollback/batalin semua perubahan
 
             // simpan detail pesanan dan update stok
             for (const item of keranjang) {
-
                 // pastikan stok masih tersedia
                 if (item.jumlah > item.Produk.stok) {
                     await t.rollback()
@@ -108,7 +110,7 @@ module.exports = {
                     )
                 }
 
-                // simpan detail produk yang dibeli
+                // simpan detail dri produk yg dibeli
                 await DetailPesanan.create({
                     pesanan_id: pesanan.id,
                     produk_id: item.produk_id,
@@ -158,6 +160,7 @@ module.exports = {
                 return res.status(404).json(response(404, "pesanan tidak ditemukan"))
             }
 
+            //update status pesanan sama pengiriman
             await pesanan.update({
                 status,
                 nama_ekspedisi,
@@ -175,7 +178,7 @@ module.exports = {
 
     konfirmasiDiterima: async (req, res) => {
         try {
-            // pastikan pesanan milik user
+            // pastikan pesanan punya user yg lagi login
             const pesanan = await Pesanan.findOne({
                 where: {
                     id: req.params.id,
@@ -183,21 +186,20 @@ module.exports = {
                 }
             })
 
+            //bisa dikonfirmasi kalau status pesananya udh "dikirim"
             if (!pesanan) {
                 return res.status(404).json(response(404, "pesanan tidak ditemukan"))
             }
 
-            // hanya bisa dikonfirmasi setelah dikirim
+            // hanya bisa dikonfirmasi kalau statusnya "dikirim"
             if (pesanan.status !== 'dikirim') {
                 return res.status(400).json(response(400, "pesanan belum dikirim"))
             }
 
             await pesanan.update({ status: 'selesai' })
-
             return res.status(200).json(
                 response(200, "pesanan dikonfirmasi selesai", pesanan)
             )
-
         } catch (error) {
             return res.status(500).json(response(500, "Server Error", error.message))
         }

@@ -5,6 +5,7 @@ const { response } = require('../helpers/response.formatter')
 
 module.exports = {
 
+    //ambil kategori, bisa diakses sma siapa aja tanpa hrs login
     getKategori: async (req, res) => {
         try {
             const kategori = await Kategori.findAll()
@@ -14,6 +15,7 @@ module.exports = {
         }
     },
 
+    //ambil 1 kategori berdasarkan id
     getKategoriById: async (req, res) => {
         try {
             const kategori = await Kategori.findByPk(req.params.id)
@@ -26,11 +28,12 @@ module.exports = {
         }
     },
 
+    //tambah kategori, cuman admin yg bisa akses
     createKategori: async (req, res) => {
         try {
             const { nama_kategori, deskripsi } = req.body
 
-            //validasi input
+            //validasi input, min 3 karakter
             const schema = {
                 nama_kategori: { type: "string", min: 3 }
             }
@@ -52,15 +55,18 @@ module.exports = {
         }
     },
 
+    //
     updateKategori: async (req, res) => {
         try {
             const { nama_kategori, deskripsi } = req.body
 
+            //cek kategorinya ada atau ga
             const kategori = await Kategori.findByPk(req.params.id)
             if (!kategori) {
                 return res.status(404).json(response(404, "kategori tidak ditemukan"))
-            }
+            }   
 
+            //update data kategori
             await kategori.update({ nama_kategori, deskripsi })
             return res.status(200).json(response(200, "kategori berhasil diupdate", kategori))
         } catch (error) {
@@ -68,6 +74,7 @@ module.exports = {
         }
     },
 
+    //hapus kategori, berdasarkan id dan admin only
     deleteKategori: async (req, res) => {
         try {
             const kategori = await Kategori.findByPk(req.params.id)

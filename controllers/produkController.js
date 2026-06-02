@@ -2,9 +2,9 @@ const Validator = require("fastest-validator")
 const v = new Validator()
 const { Produk, Kategori } = require('../models')
 const { response } = require('../helpers/response.formatter')
-const { Op } = require("sequelize")
+const { Op } = require("sequelize") // operator untuk query LIKE, dll
 const path = require('path')
-const fs = require('fs')
+const fs = require('fs') // file ssystem, hapus foto
 
 module.exports = {
 
@@ -12,9 +12,10 @@ module.exports = {
         try {
             const { nama, kategori_id, gender, ukuran_ml } = req.query
 
-            // siapkan filter pencarian
+            // filter pencarian
             let whereClause = {}
 
+            //filter
             if (nama) whereClause.nama_produk = { [Op.like]: `%${nama}%` }
             if (kategori_id) whereClause.kategori_id = kategori_id
             if (gender) whereClause.gender = gender
@@ -60,7 +61,7 @@ module.exports = {
                 gender
             } = req.body
 
-            // validasi data
+            // validasi data/field
             const schema = {
                 nama_produk: { type: "string", min: 3 },
                 harga: { type: "number", positive: true },
@@ -68,6 +69,7 @@ module.exports = {
                 ukuran_ml: { type: "number", positive: true, integer: true }
             }
 
+            //konversi ke number dari string
             const data = {
                 nama_produk,
                 harga: Number(harga),
@@ -81,9 +83,8 @@ module.exports = {
                 return res.status(400).json(response(400, "validasi error", validate))
             }
 
-            // cek kategori
+            // cek kategori, ada di db atau engga
             const kategori = await Kategori.findByPk(Number(kategori_id))
-
             if (!kategori) {
                 return res.status(404).json(response(404, "kategori tidak ditemukan"))
             }
@@ -133,6 +134,7 @@ module.exports = {
             // ganti foto lama jika ada upload baru
             if (req.file && produk.foto) {
                 const fotoLama = path.join(__dirname, '../uploads', produk.foto)
+                //existssync: cek apakah file ada sebelum dihapus biar ga error
 
                 if (fs.existsSync(fotoLama)) {
                     fs.unlinkSync(fotoLama)
@@ -145,6 +147,7 @@ module.exports = {
                 deskripsi,
                 harga: Number(harga),
                 stok: Number(stok),
+                //pake foto yg baru klo ad, kalo gaada pake yg lama
                 foto: req.file ? req.file.filename : produk.foto,
                 merek,
                 ukuran_ml: Number(ukuran_ml),
@@ -168,7 +171,7 @@ module.exports = {
                 return res.status(404).json(response(404, "produk tidak ditemukan"))
             }
 
-            // hapus foto produk
+            // hapus foto produk di folder upload klo ada
             if (produk.foto) {
                 const fotoPath = path.join(__dirname, '../uploads', produk.foto)
 
@@ -178,7 +181,6 @@ module.exports = {
             }
 
             await produk.destroy()
-
             return res.status(200).json(
                 response(200, "produk berhasil dihapus")
             )
@@ -188,6 +190,7 @@ module.exports = {
         }
     },
 
+    //fitur rekomendasi, ngasih rekomen produk yg sama, mau dari segi kategori, gender, dll
     getRekomendasiProduk: async (req, res) => {
         try {
             const produk = await Produk.findByPk(req.params.id)
@@ -196,16 +199,16 @@ module.exports = {
                 return res.status(404).json(response(404, "produk tidak ditemukan"))
             }
 
-            // cari produk serupa
+            // cari produk sama, kaya kategori dll
             const rekomendasi = await Produk.findAll({
                 where: {
                     kategori_id: produk.kategori_id,
                     gender: produk.gender,
                     id: {
-                        [Op.ne]: req.params.id
+                        [Op.ne]: req.params.id // kecuali produk yg lagi dibuka/diliat sama si user
                     }
                 },
-                limit: 4,
+                limit: 4, //maksimal muncul 4 rekomendasi
                 include: [{ model: Kategori }]
             })
 

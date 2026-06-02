@@ -9,6 +9,7 @@ module.exports = {
 
     register: async (req, res) => {
         try {
+            //ngambil data dri body req 
             const { nama, email, password, no_hp, alamat } = req.body
 
             // validasi data
@@ -25,13 +26,14 @@ module.exports = {
                 return res.status(400).json(response(400, "validasi error", validate))
             }
 
-            // cek email
+            // cek email, udh pernah dipake daftar sblmnya
             const cekEmail = await User.findOne({ where: { email } })
             if (cekEmail) {
                 return res.status(400).json(response(400, "email sudah digunakan"))
             }
 
             // enkripsi password
+            //ngehash pw, biar aman pas disimpe di db
             const hashedPassword = await bcrypt.hash(password, 10)
 
             const user = await User.create({
@@ -58,19 +60,19 @@ module.exports = {
         try {
             const { email, password } = req.body
 
-            // cari user
+            // cari user berdasarkan email
             const user = await User.findOne({ where: { email } })
             if (!user) {
                 return res.status(400).json(response(400, "email atau password salah"))
             }
 
-            // verifikasi password
+            // verifikasi password dan ngebandingin pw yg diinput sama yg ada di db (udh di hash)
             const validPass = await bcrypt.compare(password, user.password)
             if (!validPass) {
                 return res.status(400).json(response(400, "email atau password salah"))
             }
 
-            // generate token
+            // generate token yg isinya data user
             const token = jwt.sign(
                 { id: user.id, nama: user.nama, email: user.email, role: user.role },
                 process.env.JWT_SECRET,
@@ -91,6 +93,7 @@ module.exports = {
         }
     },
 
+    //endpoint sementara buat akun admin, klo udh ada, bisa dihapus
     registerAdmin: async (req, res) => {
         try {
             const { nama, email, password, no_hp, alamat } = req.body
@@ -128,7 +131,7 @@ module.exports = {
         try {
             // ambil data user
             const user = await User.findByPk(req.user.id, {
-                attributes: { exclude: ['password'] }
+                attributes: { exclude: ['password'] } //jangan tampilin pw
             })
 
             return res.status(200).json(response(200, "success", user))

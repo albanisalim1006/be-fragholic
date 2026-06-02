@@ -1,15 +1,16 @@
 const express = require('express')
 const cors = require('cors')
 const swaggerUi = require('swagger-ui-express') // lib swagger-ui
-require('dotenv').config()
+require('dotenv').config() //file env
 
 const swaggerDocument = require('./swagger.json')
 
 const app = express()
 
+//biar FE bisa akses BE walau beda port
 app.use(cors({ origin: 'http://localhost:5173' }))
 app.use(express.json())
-app.use('/uploads', express.static('uploads'))
+app.use('/uploads', express.static('uploads')) //biar bisa akses file foto produk yang diupload
 
 //routing untuk dokumentasi API pake swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument))
