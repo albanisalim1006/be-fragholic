@@ -1,6 +1,5 @@
 const { Pesanan, DetailPesanan, Produk, User } = require('../models')
 const { response } = require('../helpers/response.formatter')
-const PDFDocument = require('pdfkit')
 const { Op } = require('sequelize')
 
 module.exports = {
@@ -10,13 +9,13 @@ module.exports = {
             const { bulan, tahun } = req.query
             let whereClause = {}
 
-            //filter berdasarkan bulan dan tahun kalau ada
             if (bulan && tahun) {
                 const startDate = new Date(tahun, bulan - 1, 1)
                 const endDate = new Date(tahun, bulan, 0, 23, 59, 59)
                 whereClause.createdAt = { [Op.between]: [startDate, endDate] }
             }
 
+            // ambil data pesanan dari database, untuk ditampilkan di tabel laporan
             const pesanan = await Pesanan.findAll({
                 where: whereClause,
                 include: [
@@ -26,7 +25,7 @@ module.exports = {
                 order: [['createdAt', 'DESC']]
             })
 
-            //hitung total pendapatan dari pesanan yang sudah selesai
+            // hitung total pendapatan dari pesanan yang sudah selesai
             const totalPendapatan = pesanan
                 .filter(p => p.status === 'selesai')
                 .reduce((acc, p) => acc + Number(p.total_harga), 0)
@@ -40,8 +39,9 @@ module.exports = {
             return res.status(500).json(response(500, "Server Error", error.message))
         }
     },
-    // export pdf menggunakan package pdfkit
-    exportPDF: async (req, res) => {
+
+    // export ke csv, buat laporan penjualan
+    exportExcel: async (req, res) => {
         try {
             const { bulan, tahun } = req.query
             let whereClause = {}
@@ -52,6 +52,7 @@ module.exports = {
                 whereClause.createdAt = { [Op.between]: [startDate, endDate] }
             }
 
+            // ambil data pesanan dari database
             const pesanan = await Pesanan.findAll({
                 where: whereClause,
                 include: [
@@ -65,69 +66,42 @@ module.exports = {
                 .filter(p => p.status === 'selesai')
                 .reduce((acc, p) => acc + Number(p.total_harga), 0)
 
-            //buat dokumen PDF baru
-            const doc = new PDFDocument({ margin: 50, size: 'A4' })
+            // buat isi CSV
+            // \n = pindah baris, ; = pemisah kolom (lebih aman dari koma untuk Excel Indonesia)
+            let csv = ''
 
-            //set header response biar browser tau ini file PDF
-            res.setHeader('Content-Type', 'application/pdf')
-            res.setHeader('Content-Disposition', `attachment; filename=laporan-fragholic.pdf`)
-
-            //streaming PDF langsung ke response
-            doc.pipe(res)
-
-            //isi PDF
-            doc.fontSize(22).font('Helvetica-Bold').text('FRAGHOLIC', { align: 'center' })
-            doc.fontSize(12).font('Helvetica').text('Laporan Penjualan', { align: 'center' })
-
+            // baris judul
+            csv += 'LAPORAN PENJUALAN FRAGHOLIC\n'
             if (bulan && tahun) {
                 const periode = new Date(tahun, bulan - 1).toLocaleString('id-ID', { month: 'long', year: 'numeric' })
-                doc.text(`Periode: ${periode}`, { align: 'center' })
+                csv += `Periode: ${periode}\n`
             }
+            csv += '\n'
 
-            doc.moveDown()
-            doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke()
-            doc.moveDown()
+            // baris ringkasan
+            csv += `Total Pesanan;${pesanan.length}\n`
+            csv += `Total Pendapatan;Rp ${totalPendapatan.toLocaleString('id-ID')}\n`
+            csv += '\n'
 
-            doc.fontSize(13).font('Helvetica-Bold').text('Ringkasan')
-            doc.moveDown(0.4)
-            doc.fontSize(11).font('Helvetica')
-            doc.text(`Total Pesanan    : ${pesanan.length}`)
-            doc.text(`Total Pendapatan : Rp ${totalPendapatan.toLocaleString('id-ID')}`)
-            doc.moveDown()
-            doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke()
-            doc.moveDown()
+            // header tabel
+            csv += 'No;ID Pesanan;Nama Customer;Email;Total Harga;Status;Tanggal\n'
 
-            //header tabel
-            doc.fontSize(10).font('Helvetica-Bold')
-            const yHeader = doc.y
-            doc.text('No',       50,  yHeader, { width: 30 })
-            doc.text('Customer', 85,  yHeader, { width: 130 })
-            doc.text('Total',    220, yHeader, { width: 110 })
-            doc.text('Status',   335, yHeader, { width: 80 })
-            doc.text('Tanggal',  420, yHeader, { width: 110 })
-            doc.moveDown(0.4)
-            doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke()
-            doc.moveDown(0.3)
-
-            //isi tabel
-            doc.font('Helvetica').fontSize(10)
+            // isi data pesanan, loop satu per satu
             pesanan.forEach((p, i) => {
-                if (doc.y > 700) { doc.addPage(); doc.y = 50 }
-                const y = doc.y
-                doc.text(`${i + 1}`,   50,  y, { width: 30 })
-                doc.text(p.User?.nama || '-', 85, y, { width: 130 })
-                doc.text(`Rp ${Number(p.total_harga).toLocaleString('id-ID')}`, 220, y, { width: 110 })
-                doc.text(p.status,     335, y, { width: 80 })
-                doc.text(new Date(p.createdAt).toLocaleDateString('id-ID'), 420, y, { width: 110 })
-                doc.moveDown(0.9)
+                const tanggal = new Date(p.createdAt).toLocaleDateString('id-ID')
+                const total = `Rp ${Number(p.total_harga).toLocaleString('id-ID')}`
+
+                // setiap kolom dipisah titik koma
+                csv += `${i + 1};${p.id};${p.User?.nama || '-'};${p.User?.email || '-'};${total};${p.status};${tanggal}\n`
             })
 
-            doc.moveDown()
-            doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke()
-            doc.moveDown(0.5)
-            doc.fontSize(9).fillColor('#999').text(`Dicetak: ${new Date().toLocaleString('id-ID')}`, { align: 'right' })
+            // kasih tahu browser bahwa ini file CSV yang harus didownload
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+            res.setHeader('Content-Disposition', `attachment; filename=laporan-fragholic.csv`)
 
-            doc.end()
+            // kirim isi CSV langsung sebagai response
+            return res.send(csv)
+
         } catch (error) {
             return res.status(500).json(response(500, "Server Error", error.message))
         }
